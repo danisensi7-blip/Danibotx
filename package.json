@@ -1,0 +1,13 @@
+{
+  "name": "danibot",
+  "version": "1.0.0",
+  "description": "Danibot de WhatsApp",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "qrcode-terminal": "latest"
+  }
+}
