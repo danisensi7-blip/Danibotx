@@ -4,41 +4,80 @@ const {
   DisconnectReason
 } = require("@whiskeysockets/baileys");
 
-const qrcode = require("qrcode-terminal");
+const PHONE_NUMBER = "573132795505";
 
 async function iniciarDanibot() {
   const { state, saveCreds } =
     await useMultiFileAuthState("auth_info_baileys");
 
   const sock = makeWASocket({
-    auth: state
+    auth: state,
+    printQRInTerminal: false,
+    browser: ["Danibot", "Chrome", "1.0.0"]
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
+  let codigoSolicitado = false;
 
-    if (qr) {
-      console.log("\n📱 ESCANEA ESTE QR CON WHATSAPP:\n");
-      qrcode.generate(qr, { small: true });
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (
+      !state.creds.registered &&
+      !codigoSolicitado &&
+      (connection === "connecting" || qr)
+    ) {
+      codigoSolicitado = true;
+
+      try {
+        const codigo = await sock.requestPairingCode(PHONE_NUMBER);
+
+        console.log("");
+        console.log("================================");
+        console.log("🔗 CÓDIGO DE VINCULACIÓN");
+        console.log("================================");
+        console.log("📱 " + codigo);
+        console.log("================================");
+        console.log("En WhatsApp:");
+        console.log("Dispositivos vinculados");
+        console.log("→ Vincular un dispositivo");
+        console.log("→ Vincular con número de teléfono");
+        console.log("→ Introduce el código");
+        console.log("================================");
+        console.log("");
+      } catch (error) {
+        console.error("❌ Error generando código:", error);
+        codigoSolicitado = false;
+      }
     }
 
     if (connection === "open") {
-      console.log("\n✅ DANIBOT CONECTADO A WHATSAPP\n");
-      console.log("🤖 Danibot está listo.");
+      console.log("");
+      console.log("================================");
+      console.log("🤖 DANIBOT CONECTADO");
+      console.log("================================");
+      console.log("✅ WhatsApp conectado correctamente");
+      console.log("🤖 Danibot está listo");
+      console.log("================================");
+      console.log("");
     }
 
     if (connection === "close") {
       const codigo =
         lastDisconnect?.error?.output?.statusCode;
 
-      console.log("❌ Conexión cerrada.");
+      console.log("❌ Conexión cerrada");
+      console.log("Código:", codigo);
 
-      if (codigo !== DisconnectReason.loggedOut) {
-        console.log("🔄 Reconectando...");
-        iniciarDanibot();
+      if (codigo === DisconnectReason.loggedOut) {
+        console.log("⚠️ La sesión fue cerrada en WhatsApp.");
       } else {
-        console.log("⚠️ Sesión cerrada. Hay que vincular WhatsApp otra vez.");
+        console.log("🔄 Reiniciando Danibot...");
+
+        setTimeout(() => {
+          iniciarDanibot();
+        }, 3000);
       }
     }
   });
@@ -46,7 +85,8 @@ async function iniciarDanibot() {
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const mensaje = messages[0];
 
-    if (!mensaje?.message) return;
+    if (!mensaje) return;
+    if (!mensaje.message) return;
     if (mensaje.key.fromMe) return;
 
     const texto =
@@ -59,7 +99,9 @@ async function iniciarDanibot() {
     if (comando === ".menu") {
       await sock.sendMessage(mensaje.key.remoteJid, {
         text:
-`╭━━━ 🤖 DANIBOT ━━━╮
+`╔══════════════════╗
+║    🤖 DANIBOT    ║
+╚══════════════════╝
 
 👋 Hola, soy Danibot.
 
@@ -69,13 +111,13 @@ async function iniciarDanibot() {
 • .ping
 • .hola
 
-╰━━━━━━━━━━━━━━━━╯`
+🤖 Danibot está activo.`
       });
     }
 
     if (comando === ".ping") {
       await sock.sendMessage(mensaje.key.remoteJid, {
-        text: "🏓 Pong!\n🤖 Danibot está activo."
+        text: "🏓 Pong! 🤖 Danibot está activo."
       });
     }
 
@@ -86,5 +128,11 @@ async function iniciarDanibot() {
     }
   });
 }
+
+console.log("");
+console.log("================================");
+console.log("🤖 INICIANDO DANIBOT...");
+console.log("================================");
+console.log("");
 
 iniciarDanibot();
